@@ -18,8 +18,7 @@ color_loser = "#c0392b"
 turns = 0
 game_over = False
 
-
-def set_tile(row, column):
+def tile_click(row, column):
     global curr_player
 
     if (game_over):
@@ -28,25 +27,39 @@ def set_tile(row, column):
     if board[row][column]["text"] != "":
         return
 
-    board[row][column]["text"] = curr_player
+    if curr_player == player_x:
+        player_x_turn(row, column)
+    
+def player_x_turn(row, column):
+    global curr_player
 
-    if curr_player == player_o:
-        board[row][column]["foreground"] = color_o
-        curr_player = player_x
-    else:
-        board[row][column]["foreground"] = color_x
-        curr_player = player_o
+    board[row][column]["text"] = curr_player
+    board[row][column]["foreground"] = color_x
+    curr_player = player_o
     
     label["text"] = curr_player+"'s turn"
 
     check_winner()
 
-def check_winner(player=curr_player, check_board=board):
+    if not game_over:
+        player_o_turn()
+
+def player_o_turn():
+    global curr_player
+
+    move = best_move()
+    board[move[0]][move[1]]["text"] = curr_player
+    board[move[0]][move[1]]["foreground"] = color_o
+    curr_player = player_x
+    
+    label["text"] = curr_player+"'s turn"
+
+    check_winner()
+
+def check_winner():
     global turns, game_over
 
     turns += 1
-
-    """
 
     for row in range(3):
         if (board[row][0]["text"] == board[row][1]["text"] == board[row][2]["text"] 
@@ -91,60 +104,52 @@ def check_winner(player=curr_player, check_board=board):
             for column in range(3):
                 board[row][column].config(foreground=color_tie)
 
-    """
+def has_moves_left(check_board=board):
     for row in range(3):
-        if (check_board[row][0]["text"] == check_board[row][1]["text"] == check_board[row][2]["text"] 
-            and check_board[row][0]["text"] == player):
-            label.config(text=check_board[row][0]["text"]+" is the winner!", foreground=color_winner)
-            for column in range(3):
-                check_board[row][column].config(foreground=color_winner)
-            game_over = True
-            return True
+        for columns in range(3):
+            if check_board[row][columns]["text"] == "":
+                return True
+    return False
+
+def evaluate_board(check_board=board):
+    for row in range(3):
+        if (check_board[row][0]["text"] == check_board[row][1]["text"] == check_board[row][2]["text"]):
+            if (check_board[row][0]["text"]  == player_o) : 
+                return 10
+            elif (check_board[row][0]["text"]  == player_x) : 
+                return -10
     
     for column in range(3):
-        if (check_board[0][column]["text"] == check_board[1][column]["text"] == check_board[2][column]["text"] 
-            and check_board[0][column]["text"] == player):
-            label.config(text=check_board[0][column]["text"]+" is the winner!", foreground=color_winner)
-            for row in range(3):
-                check_board[row][column].config(foreground=color_winner)
-            game_over = True
-            return True
+        if (check_board[0][column]["text"] == check_board[1][column]["text"] == check_board[2][column]["text"]):
+            if (check_board[0][column]["text"] == player_o) : 
+                return 10
+            elif (check_board[0][column]["text"] == player_x) : 
+                return -10
         
-    if (check_board[0][0]["text"] == check_board[1][1]["text"] == check_board[2][2]["text"]
-        and check_board[0][0]["text"] == player):
-        label.config(text=check_board[0][0]["text"]+" is the winner!", foreground=color_winner)
-        for i in range(3):
-            check_board[i][i].config(foreground=color_winner)
-        game_over = True
-        return True
+    if (check_board[0][0]["text"] == check_board[1][1]["text"] == check_board[2][2]["text"]):
+        if (check_board[0][0]["text"] == player_o) : 
+            return 10
+        elif (check_board[0][0]["text"] == player_x) : 
+            return -10
 
-    if (check_board[0][2]["text"] == check_board[1][1]["text"] == check_board[2][0]["text"]
-        and check_board[0][2]["text"] == player):
-        label.config(text=check_board[0][2]["text"]+" is the winner!", foreground=color_winner)
-        check_board[0][2].config(foreground=color_winner)
-        check_board[1][1].config(foreground=color_winner)
-        check_board[2][0].config(foreground=color_winner)
-        game_over = True
-        return True
-    
-    if (turns == 9):
-        game_over = True
-        label.config(text="It's a tie!", foreground=color_tie)
-
-        for row in range(3):
-            for column in range(3):
-                board[row][column].config(foreground=color_tie)
+    if (check_board[0][2]["text"] == check_board[1][1]["text"] == check_board[2][0]["text"]):
+        if (check_board[0][2]["text"] == player_o) : 
+            return 10
+        elif (check_board[0][2]["text"] == player_x) : 
+            return -10
     
     return False
 
 def minimax(minimax_board, depth, is_maximizing):
     global turns
 
-    if check_winner(player_o, minimax_board):
-        return float('inf')
-    elif check_winner(player_x, minimax_board):
-        return float('-inf')
-    elif turns == 9:
+    score = evaluate_board(minimax_board)
+
+    if score == 10:
+        return score
+    elif score == -10:
+        return score
+    elif not has_moves_left(minimax_board):
         return 0
     
     if is_maximizing:
@@ -153,19 +158,17 @@ def minimax(minimax_board, depth, is_maximizing):
             for column in range(3):
                 if minimax_board[row][column]["text"] == "":
                     minimax_board[row][column]["text"] = player_o
-                    score = minimax(minimax_board, depth + 1, False)
-                    minimax_board[row][column] = ""
-                    best_score = max(score, best_score)
+                    best_score = max(minimax(minimax_board, depth + 1, not is_maximizing), best_score)
+                    minimax_board[row][column]["text"] = ""
         return best_score
     else:
-        best_score = -1000
+        best_score = 1000
         for row in range(3):
             for column in range(3):
                 if minimax_board[row][column]["text"] == "":
                     minimax_board[row][column]["text"] = player_x
-                    score = minimax(minimax_board, depth + 1, True)
-                    minimax_board[row][column] = ""
-                    best_score = min(score, best_score)
+                    best_score = min(minimax(minimax_board, depth + 1, not is_maximizing), best_score)
+                    minimax_board[row][column]["text"] = ""
         return best_score
     
 def best_move():
@@ -181,11 +184,7 @@ def best_move():
                 if score > best_score:
                     best_score = score
                     move = (row, column)
-    
-    if move != (-1, -1):
-        board[move[0]][move[1]]["foreground"] = color_o
-        return True
-    return False
+    return move
 
 def new_game():
     global turns, game_over, curr_player
@@ -213,7 +212,7 @@ for row in range(3):
     for column in range(3):
         board[row][column] = tkinter.Button(frame, text="", font=("Consolas", 50, "bold"), foreground=color_x,
                                             width=3, height=2, borderwidth=0, pady=0, highlightthickness=0,
-                                            command=lambda row=row, column=column: set_tile(row, column))
+                                            command=lambda row=row, column=column: tile_click(row, column))
         board[row][column].grid(row=row+1, column=column)
 
 button = tkinter.Button(frame, text="Restart Game", font=("Consolas", 20), foreground="black", 
